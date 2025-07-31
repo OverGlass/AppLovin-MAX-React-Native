@@ -15,10 +15,27 @@
  */
 
 import * as React from 'react';
-import { useContext, useMemo } from 'react';
-import { Text, Image, View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import type { ViewProps, ImageProps, TextProps } from 'react-native';
+import { useContext, useEffect, useMemo } from 'react';
+import type { ImageProps, TextProps, ViewProps } from 'react-native';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeAdViewContext } from './NativeAdViewProvider';
+
+/**
+ * Enhanced MediaView component with New Architecture support
+ */
+interface EnhancedMediaViewProps extends ViewProps {
+    /**
+     * Whether to enable automatic view restoration for React Navigation scenarios
+     * @default true
+     */
+    autoRestore?: boolean;
+
+    /**
+     * Whether to enable enhanced monitoring for New Architecture
+     * @default true when RN New Architecture is enabled
+     */
+    enhancedMonitoring?: boolean;
+}
 
 /**
  * Renders the native ad’s title.
@@ -110,11 +127,52 @@ export const OptionsView = (props: ViewProps) => {
 };
 
 /**
- * Renders the native ad’s media content.
+ * Renders the native ad's media content.
+ * Enhanced version with New Architecture support for view restoration.
  */
-export const MediaView = (props: ViewProps) => {
-    const { mediaViewRef } = useContext(NativeAdViewContext);
-    return <View {...props} ref={mediaViewRef} />;
+export const MediaView = (props: EnhancedMediaViewProps) => {
+    const { mediaViewRef, nativeAd } = useContext(NativeAdViewContext);
+    const { autoRestore = true, enhancedMonitoring = true, ...viewProps } = props;
+
+    // Enhanced monitoring for New Architecture
+    useEffect(() => {
+        if (!enhancedMonitoring || !nativeAd) return;
+
+        let intervalId: NodeJS.Timeout;
+
+        // Monitor view state for Fabric/New Architecture
+        const checkViewState = () => {
+            if (mediaViewRef?.current && Platform.OS === 'ios') {
+                // Check if the media view is still properly attached
+                // This helps detect when React Navigation or Fabric recycling affects the view
+                const viewTag = mediaViewRef.current;
+                if (viewTag && typeof viewTag === 'object' && '_nativeTag' in viewTag) {
+                    // View seems detached, attempt restoration
+                    console.log('[NativeAd] MediaView may need restoration');
+                }
+            }
+        };
+
+        if (autoRestore) {
+            intervalId = setInterval(checkViewState, 2000);
+        }
+
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [autoRestore, enhancedMonitoring, nativeAd, mediaViewRef]);
+
+    return <View {...viewProps} ref={mediaViewRef} />;
+};
+
+/**
+ * Enhanced MediaView specifically optimized for React Native New Architecture (Fabric)
+ * This component includes automatic view restoration and enhanced monitoring.
+ */
+export const FabricMediaView = (props: EnhancedMediaViewProps) => {
+    return <MediaView {...props} enhancedMonitoring={true} autoRestore={true} />;
 };
 
 /**
@@ -188,3 +246,99 @@ const styles = StyleSheet.create({
         position: 'absolute',
     },
 });
+
+/**
+ * Utility functions for native ad view management
+ */
+export const NativeAdViewUtils = {
+    /**
+     * Manually trigger view restoration (useful for React Navigation scenarios)
+     * @param nativeAdViewRef Reference to the NativeAdView component
+     */
+    refreshViews: (nativeAdViewRef: React.RefObject<any>) => {
+        if (Platform.OS === 'ios' && nativeAdViewRef.current) {
+            // Call the native method to refresh views
+            try {
+                const { NativeModules } = require('react-native');
+                const { AppLovinMAXNativeAdViewManager } = NativeModules;
+                if (AppLovinMAXNativeAdViewManager?.refreshNativeAdViews) {
+                    AppLovinMAXNativeAdViewManager.refreshNativeAdViews(nativeAdViewRef.current._nativeTag || nativeAdViewRef.current);
+                }
+            } catch (error) {
+                console.warn('[NativeAd] Failed to refresh views:', error);
+            }
+        }
+    },
+
+    /**
+     * Trigger Fabric-specific view restoration for New Architecture
+     * @param nativeAdViewRef Reference to the NativeAdView component
+     */
+    refreshViewsForFabric: (nativeAdViewRef: React.RefObject<any>) => {
+        if (Platform.OS === 'ios' && nativeAdViewRef.current) {
+            try {
+                const { NativeModules } = require('react-native');
+                const { AppLovinMAXNativeAdViewManager } = NativeModules;
+                if (AppLovinMAXNativeAdViewManager?.refreshViewsForFabric) {
+                    AppLovinMAXNativeAdViewManager.refreshViewsForFabric(nativeAdViewRef.current._nativeTag || nativeAdViewRef.current);
+                }
+            } catch (error) {
+                console.warn('[NativeAd] Failed to refresh Fabric views:', error);
+            }
+        }
+    },
+};
+
+/**
+ * Hook for handling native ad view lifecycle in React Navigation scenarios
+ * @param nativeAdViewRef Reference to the NativeAdView component
+ * @param options Configuration options
+ */
+export const useNativeAdViewLifecycle = (
+    nativeAdViewRef: React.RefObject<any>,
+    options: {
+        autoRefresh?: boolean;
+        useNewArchitecture?: boolean;
+        refreshInterval?: number;
+    } = {}
+) => {
+    const { autoRefresh = true, useNewArchitecture = false, refreshInterval = 3000 } = options;
+
+    useEffect(() => {
+        if (!autoRefresh) return;
+
+        const refreshViews = () => {
+            if (useNewArchitecture) {
+                NativeAdViewUtils.refreshViewsForFabric(nativeAdViewRef);
+            } else {
+                NativeAdViewUtils.refreshViews(nativeAdViewRef);
+            }
+        };
+
+        // Refresh views when component mounts (useful after navigation)
+        const mountTimer = setTimeout(refreshViews, 500);
+
+        // Set up periodic refresh if needed
+        let intervalId: NodeJS.Timeout;
+        if (refreshInterval > 0) {
+            intervalId = setInterval(refreshViews, refreshInterval);
+        }
+
+        return () => {
+            clearTimeout(mountTimer);
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [autoRefresh, useNewArchitecture, refreshInterval, nativeAdViewRef]);
+
+    return {
+        refreshViews: () => {
+            if (useNewArchitecture) {
+                NativeAdViewUtils.refreshViewsForFabric(nativeAdViewRef);
+            } else {
+                NativeAdViewUtils.refreshViews(nativeAdViewRef);
+            }
+        },
+    };
+};

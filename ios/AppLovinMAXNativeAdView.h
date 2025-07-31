@@ -31,6 +31,17 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setMediaView:(NSNumber *)tag;
 - (void)renderNativeAd;
 
+#ifdef RCT_NEW_ARCH_ENABLED
+- (void)refreshNativeAdViewsForFabric;
+- (void)restoreViewsAfterFabricRecycle;
+- (void)startFabricViewMonitoring;
+- (void)stopFabricViewMonitoring;
+#endif
+
+- (void)restoreNativeAdViews;
+- (void)startViewStateMonitoring;
+- (void)stopViewStateMonitoring;
+
 - (instancetype)initWithBridge:(RCTBridge *)bridge;
 
 @end

@@ -70,6 +70,12 @@ using namespace facebook::react;
 // TODO: Allow publisher to select which views are clickable and which isn't via prop
 @property (nonatomic, strong) NSMutableArray<UIView *> *clickableViews;
 
+// Add these new properties for lifecycle management
+@property (nonatomic, strong) NSTimer *viewStateMonitor;
+@property (nonatomic, assign) BOOL hasRestoredViews;
+@property (nonatomic, assign) BOOL isViewVisible;
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, UIView *> *assetViewsMap;
+
 @end
 
 @implementation AppLovinMAXNativeAdView
@@ -88,12 +94,12 @@ using namespace facebook::react;
     {
         static const auto defaultProps = std::make_shared<const AppLovinMAXNativeAdViewProps>();
         _props = defaultProps;
-        
+
         self.bridge = [RCTBridge currentBridge];
         self.isLoading = [[ALAtomicBoolean alloc] init];
         self.isAdUnitIdSet = [[ALAtomicBoolean alloc] init];
         self.clickableViews = [NSMutableArray array];
-        
+
         [self setupEventHandlers];
     }
     return self;
@@ -106,10 +112,10 @@ using namespace facebook::react;
         if ( _eventEmitter )
         {
             auto nativeAdViewEventEmitter = std::static_pointer_cast<AppLovinMAXNativeAdViewEventEmitter const>(_eventEmitter);
-            
+
             NSDictionary *nativeAd = event[@"nativeAd"];
             NSDictionary *nativeAdImpl = event[@"nativeAdImpl"];
-            
+
             AppLovinMAXNativeAdViewEventEmitter::OnAdLoadedEvent result =
             {
                 .adUnitId = std::string([event[@"adUnitId"] ?: @"" UTF8String]),
@@ -150,17 +156,17 @@ using namespace facebook::react;
                     .isMediaViewAvailable = [nativeAdImpl[@"isMediaViewAvailable"] boolValue],
                 }
             };
-            
+
             nativeAdViewEventEmitter->onAdLoadedEvent(result);
         }
     };
-    
+
     self.onAdLoadFailedEvent = [self](NSDictionary *event)
     {
         if ( _eventEmitter )
         {
             auto nativeAdViewEventEmitter = std::static_pointer_cast<AppLovinMAXNativeAdViewEventEmitter const>(_eventEmitter);
-            
+
             AppLovinMAXNativeAdViewEventEmitter::OnAdLoadFailedEvent result =
             {
                 .adUnitId = std::string([event[@"adUnitId"] ?: @"" UTF8String]),
@@ -170,17 +176,17 @@ using namespace facebook::react;
                 .mediatedNetworkErrorMessage = std::string([event[@"mediatedNetworkErrorMessage"] ?: @"" UTF8String]),
                 .adLoadFailureInfo = std::string([event[@"adLoadFailureInfo"] ?: @"" UTF8String])
             };
-            
+
             nativeAdViewEventEmitter->onAdLoadFailedEvent(result);
         }
     };
-    
+
     self.onAdClickedEvent = [self](NSDictionary *event)
     {
         if ( _eventEmitter )
         {
             auto nativeAdViewEventEmitter = std::static_pointer_cast<AppLovinMAXNativeAdViewEventEmitter const>(_eventEmitter);
-            
+
             AppLovinMAXNativeAdViewEventEmitter::OnAdClickedEvent result =
             {
                 .adUnitId = std::string([event[@"adUnitId"] ?: @"" UTF8String]),
@@ -198,17 +204,17 @@ using namespace facebook::react;
                     .height = [event[@"size"][@"height"] doubleValue],
                 },
             };
-            
+
             nativeAdViewEventEmitter->onAdClickedEvent(result);
         }
     };
-    
+
     self.onAdRevenuePaidEvent = [self](NSDictionary *event)
     {
         if ( _eventEmitter )
         {
             auto nativeAdViewEventEmitter = std::static_pointer_cast<AppLovinMAXNativeAdViewEventEmitter const>(_eventEmitter);
-            
+
             AppLovinMAXNativeAdViewEventEmitter::OnAdRevenuePaidEvent result =
             {
                 .adUnitId = std::string([event[@"adUnitId"] ?: @"" UTF8String]),
@@ -226,7 +232,7 @@ using namespace facebook::react;
                     .height = [event[@"size"][@"height"] doubleValue],
                 },
             };
-            
+
             nativeAdViewEventEmitter->onAdRevenuePaidEvent(result);
         }
     };
@@ -236,69 +242,69 @@ using namespace facebook::react;
 {
     const auto &oldViewProps = *std::static_pointer_cast<AppLovinMAXNativeAdViewProps const>(_props);
     const auto &newViewProps = *std::static_pointer_cast<AppLovinMAXNativeAdViewProps const>(props);
-    
+
     if ( oldViewProps.adUnitId != newViewProps.adUnitId )
     {
         [self setAdUnitId: RCTNSStringFromString(newViewProps.adUnitId)];
     }
-    
+
     if ( oldViewProps.placement != newViewProps.placement )
     {
         [self setPlacement: RCTNSStringFromStringNilIfEmpty(newViewProps.placement)];
     }
-    
+
     if ( oldViewProps.customData != newViewProps.customData )
     {
         [self setCustomData: RCTNSStringFromStringNilIfEmpty(newViewProps.customData)];
     }
-    
+
     if ( newViewProps.extraParameters.size() > 0 )
     {
         NSMutableArray *extraParameters = [NSMutableArray array];
-        
+
         for ( const auto &parameter: newViewProps.extraParameters )
         {
             NSDictionary *dict = @{@"key": RCTNSStringFromString(parameter.key),
                                    @"value": RCTNSStringFromString(parameter.value)};
             [extraParameters addObject: dict];
         }
-        
+
         _extraParameters = extraParameters;
     }
-    
+
     if ( newViewProps.strLocalExtraParameters.size() > 0 )
     {
         NSMutableArray *strLocalExtraParameters = [NSMutableArray array];
-        
+
         for ( const auto &parameter: newViewProps.strLocalExtraParameters )
         {
             NSDictionary *dict = @{@"key": RCTNSStringFromString(parameter.key),
                                    @"value": RCTNSStringFromString(parameter.value)};
             [strLocalExtraParameters addObject: dict];
         }
-        
+
         [self setStrLocalExtraParameters: strLocalExtraParameters];
     }
-    
+
     if ( newViewProps.boolLocalExtraParameters.size() > 0 )
     {
         NSMutableArray *boolLocalExtraParameters = [NSMutableArray array];
-        
+
         for ( const auto &parameter: newViewProps.boolLocalExtraParameters )
         {
             NSDictionary *dict = @{@"key": RCTNSStringFromString(parameter.key),
                                    @"value": @(parameter.value)};
             [boolLocalExtraParameters addObject: dict];
         }
-        
+
         [self setBoolLocalExtraParameters: boolLocalExtraParameters];
     }
-    
+
     if ( [self.isAdUnitIdSet compareAndSet: YES update: NO] )
     {
         [self loadAd];
     }
-    
+
     [super updateProps: props oldProps: oldProps];
 }
 
@@ -318,16 +324,127 @@ using namespace facebook::react;
     {
         [self renderNativeAd];
     }
+    else if ( [commandName isEqualToString: @"refreshViews"] )
+    {
+        // New command for Fabric-specific refresh
+        [self refreshNativeAdViewsForFabric];
+    }
+}
+
+// Override updateProps to handle Fabric timing issues
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
+{
+    const auto &oldViewProps = *std::static_pointer_cast<AppLovinMAXNativeAdViewProps const>(_props);
+    const auto &newViewProps = *std::static_pointer_cast<AppLovinMAXNativeAdViewProps const>(props);
+
+    if ( oldViewProps.adUnitId != newViewProps.adUnitId )
+    {
+        [self setAdUnitId: RCTNSStringFromString(newViewProps.adUnitId)];
+    }
+
+    if ( oldViewProps.placement != newViewProps.placement )
+    {
+        [self setPlacement: RCTNSStringFromStringNilIfEmpty(newViewProps.placement)];
+    }
+
+    if ( oldViewProps.customData != newViewProps.customData )
+    {
+        [self setCustomData: RCTNSStringFromStringNilIfEmpty(newViewProps.customData)];
+    }
+
+    if ( newViewProps.extraParameters.size() > 0 )
+    {
+        NSMutableArray *extraParameters = [NSMutableArray array];
+
+        for ( const auto &parameter: newViewProps.extraParameters )
+        {
+            NSDictionary *dict = @{@"key": RCTNSStringFromString(parameter.key),
+                                   @"value": RCTNSStringFromString(parameter.value)};
+            [extraParameters addObject: dict];
+        }
+
+        _extraParameters = extraParameters;
+    }
+
+    if ( newViewProps.strLocalExtraParameters.size() > 0 )
+    {
+        NSMutableArray *strLocalExtraParameters = [NSMutableArray array];
+
+        for ( const auto &parameter: newViewProps.strLocalExtraParameters )
+        {
+            NSDictionary *dict = @{@"key": RCTNSStringFromString(parameter.key),
+                                   @"value": RCTNSStringFromString(parameter.value)};
+            [strLocalExtraParameters addObject: dict];
+        }
+
+        [self setStrLocalExtraParameters: strLocalExtraParameters];
+    }
+
+    if ( newViewProps.boolLocalExtraParameters.size() > 0 )
+    {
+        NSMutableArray *boolLocalExtraParameters = [NSMutableArray array];
+
+        for ( const auto &parameter: newViewProps.boolLocalExtraParameters )
+        {
+            NSDictionary *dict = @{@"key": RCTNSStringFromString(parameter.key),
+                                   @"value": @(parameter.value)};
+            [boolLocalExtraParameters addObject: dict];
+        }
+
+        [self setBoolLocalExtraParameters: boolLocalExtraParameters];
+    }
+
+    if ( [self.isAdUnitIdSet compareAndSet: YES update: NO] )
+    {
+        [self loadAd];
+    }
+
+    [super updateProps: props oldProps: oldProps];
+
+    // In Fabric, props updates can happen after view mounting
+    // Schedule a delayed restoration to ensure all child views are ready
+    if ( self.nativeAd )
+    {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self refreshNativeAdViewsForFabric];
+        });
+    }
 }
 
 - (void)prepareForRecycle
 {
     [super prepareForRecycle];
-    
+
     static const auto defaultProps = std::make_shared<const AppLovinMAXNativeAdViewProps>();
     _props = defaultProps;
-    
-    [self destroyCurrentAdIfNeeded];
+
+    // Enhanced cleanup for Fabric recycling
+    [self cleanupForFabricRecycle];
+}
+
+- (void)cleanupForFabricRecycle
+{
+    [[AppLovinMAX shared] log: @"Preparing for Fabric recycle: %@", self.adUnitId];
+
+    // Stop any ongoing operations
+    [self stopViewStateMonitoring];
+
+    // Detach media view without destroying the ad
+    if ( self.nativeAd && self.nativeAd.nativeAd && self.nativeAd.nativeAd.mediaView )
+    {
+        [self.nativeAd.nativeAd.mediaView removeFromSuperview];
+    }
+
+    // Clear view references but keep the ad data
+    [self.clickableViews removeAllObjects];
+    [self.assetViewsMap removeAllObjects];
+
+    // Reset state flags
+    self.hasRestoredViews = NO;
+    self.isViewVisible = NO;
+
+    // Don't destroy the native ad itself - just detach views
+    // The ad will be reused when the view is recycled
 }
 
 #endif // RCT_NEW_ARCH_ENABLED
@@ -341,6 +458,9 @@ using namespace facebook::react;
         self.isLoading = [[ALAtomicBoolean alloc] init];
         self.isAdUnitIdSet = [[ALAtomicBoolean alloc] init];
         self.clickableViews = [NSMutableArray array];
+        self.assetViewsMap = [NSMutableDictionary dictionary];
+        self.hasRestoredViews = NO;
+        self.isViewVisible = NO;
     }
     return self;
 }
@@ -349,33 +469,78 @@ using namespace facebook::react;
 - (nullable MANativeAdLoader *)adLoader
 {
     if ( ![self.adUnitId al_isValidString] ) return nil;
-    
+
     if ( ![self.adUnitId isEqualToString: _adLoader.adUnitIdentifier] )
     {
         _adLoader = [[MANativeAdLoader alloc] initWithAdUnitIdentifier: self.adUnitId sdk: [AppLovinMAX shared].sdk];
         _adLoader.nativeAdDelegate = self;
         _adLoader.revenueDelegate = self;
     }
-    
+
     return _adLoader;
 }
 
 - (void)didMoveToWindow
 {
     [super didMoveToWindow];
-    
-    if ( !self.window )
+
+    if ( self.window )
     {
-        [self destroyCurrentAdIfNeeded];
+        self.isViewVisible = YES;
+        [[AppLovinMAX shared] log: @"NativeAdView became visible for %@", self.adUnitId];
+
+#ifdef RCT_NEW_ARCH_ENABLED
+        // In Fabric, we need more aggressive restoration
+        if ( self.nativeAd )
+        {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [self refreshNativeAdViewsForFabric];
+            });
+
+            // Also start periodic monitoring for Fabric
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [self startFabricViewMonitoring];
+            });
+        }
+#else
+        // Legacy architecture handling
+        [self startViewStateMonitoring];
+
+        if ( self.nativeAd && !self.hasRestoredViews )
+        {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [self restoreNativeAdViews];
+            });
+        }
+#endif
+    }
+    else
+    {
+        self.isViewVisible = NO;
+        [[AppLovinMAX shared] log: @"NativeAdView became invisible for %@", self.adUnitId];
+
+#ifdef RCT_NEW_ARCH_ENABLED
+        [self stopFabricViewMonitoring];
+        // In Fabric, don't destroy immediately - view might be recycled
+#else
+        [self stopViewStateMonitoring];
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if ( !self.isViewVisible )
+            {
+                [self destroyCurrentAdIfNeeded];
+            }
+        });
+#endif
     }
 }
 
 - (void)setAdUnitId:(NSString *)adUnitId
 {
     if ( ![adUnitId al_isValidString] ) return;
-    
+
     _adUnitId = adUnitId;
-    
+
     [self.isAdUnitIdSet set: YES];
 }
 
@@ -411,28 +576,28 @@ using namespace facebook::react;
         [[AppLovinMAX shared] logUninitializedAccessError: @"AppLovinMAXNativeAdView.loadAd"];
         return;
     }
-    
+
     if ( [self.isLoading compareAndSet: NO update: YES] )
     {
         [[AppLovinMAX shared] log: @"Loading a native ad for Ad Unit ID: %@...", self.adUnitId];
-        
+
         self.adLoader.placement = self.placement;
         self.adLoader.customData = self.customData;
-        
+
         for ( NSDictionary *parameter in self.extraParameters )
         {
             NSString *key = parameter[@"key"];
             id value = parameter[@"value"];
             [self.adLoader setExtraParameterForKey: key value: (value != [NSNull null] ? value : nil)];
         }
-        
+
         for ( NSDictionary *parameter in self.localExtraParameters )
         {
             NSString *key = parameter[@"key"];
             id value = parameter[@"value"];
             [self.adLoader setLocalExtraParameterForKey: key value: (value != [NSNull null] ? value : nil)];
         }
-        
+
         [self.adLoader loadAd];
     }
     else
@@ -478,65 +643,81 @@ using namespace facebook::react;
 - (void)setTitleView:(NSNumber *)tag
 {
     if ( !self.nativeAd.nativeAd.title ) return;
-    
+
     UIView *view = [self.bridge.uiManager viewForReactTag: tag];
     if ( !view )
     {
         [[AppLovinMAX shared] log: @"Cannot find a title view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     view.tag = TITLE_LABEL_TAG;
-    
+
     [self.clickableViews addObject: view];
+
+    // Store reference for restoration
+    self.assetViewsMap[tag] = view;
+    self.hasRestoredViews = NO;
 }
 
 - (void)setAdvertiserView:(NSNumber *)tag
 {
     if ( !self.nativeAd.nativeAd.advertiser ) return;
-    
+
     UIView *view = [self.bridge.uiManager viewForReactTag: tag];
     if ( !view )
     {
         [[AppLovinMAX shared] log: @"Cannot find an advertiser view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     view.tag = ADVERTISER_VIEW_TAG;
-    
+
     [self.clickableViews addObject: view];
+
+    // Store reference for restoration
+    self.assetViewsMap[tag] = view;
+    self.hasRestoredViews = NO;
 }
 
 - (void)setBodyView:(NSNumber *)tag
 {
     if ( !self.nativeAd.nativeAd.body ) return;
-    
+
     UIView *view = [self.bridge.uiManager viewForReactTag: tag];
     if ( !view )
     {
         [[AppLovinMAX shared] log: @"Cannot find a body view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     view.tag = BODY_VIEW_TAG;
-    
+
     [self.clickableViews addObject: view];
+
+    // Store reference for restoration
+    self.assetViewsMap[tag] = view;
+    self.hasRestoredViews = NO;
 }
 
 - (void)setCallToActionView:(NSNumber *)tag
 {
     if ( !self.nativeAd.nativeAd.callToAction ) return;
-    
+
     UIView *view = [self.bridge.uiManager viewForReactTag: tag];
     if ( !view )
     {
         [[AppLovinMAX shared] log: @"Cannot find a callToAction view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     view.tag = CALL_TO_ACTION_VIEW_TAG;
-    
+
     [self.clickableViews addObject: view];
+
+    // Store reference for restoration
+    self.assetViewsMap[tag] = view;
+    self.hasRestoredViews = NO;
 }
 
 - (void)setIconView:(NSNumber *)tag
@@ -547,23 +728,27 @@ using namespace facebook::react;
         [[AppLovinMAX shared] log: @"Cannot find an icon image view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     view.tag = ICON_VIEW_TAG;
-    
+
     [self.clickableViews addObject: view];
+
+    // Store reference for restoration
+    self.assetViewsMap[tag] = view;
+    self.hasRestoredViews = NO;
 }
 
 - (void)setOptionsView:(NSNumber *)tag
 {
     if ( !self.nativeAd.nativeAd.optionsView ) return;
-    
+
     UIView *view = [self.bridge.uiManager viewForReactTag: tag];
     if ( !view )
     {
         [[AppLovinMAX shared] log: @"Cannot find an option view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     [view addSubview: self.nativeAd.nativeAd.optionsView];
     [self.nativeAd.nativeAd.optionsView al_pinToSuperview];
 }
@@ -571,28 +756,331 @@ using namespace facebook::react;
 - (void)setMediaView:(NSNumber *)tag
 {
     if ( !self.nativeAd.nativeAd.mediaView ) return;
-    
+
     UIView *view = [self.bridge.uiManager viewForReactTag: tag];
     if ( !view )
     {
         [[AppLovinMAX shared] log: @"Cannot find a media view with tag \"%@\" for %@", tag, self.adUnitId];
         return;
     }
-    
+
     view.tag = MEDIA_VIEW_CONTAINER_TAG;
-    
+
     [self.clickableViews addObject: view];
-    
+
     [view addSubview: self.nativeAd.nativeAd.mediaView];
     [self.nativeAd.nativeAd.mediaView al_pinToSuperview];
+
+    // Store reference for restoration
+    self.assetViewsMap[tag] = view;
+    self.hasRestoredViews = NO;
 }
 
 - (void)renderNativeAd
 {
     if ( !self.adLoader ) return;
-    
+
     [self.adLoader registerClickableViews: self.clickableViews withContainer: self forAd: self.nativeAd];
     [self.adLoader handleNativeAdViewRenderedForAd: self.nativeAd];
+}
+
+#pragma mark - New Architecture Fabric Support
+
+#ifdef RCT_NEW_ARCH_ENABLED
+
+- (void)refreshNativeAdViewsForFabric
+{
+    if ( !self.nativeAd || !self.nativeAd.nativeAd ) return;
+
+    [[AppLovinMAX shared] log: @"Refreshing native ad views for Fabric: %@", self.adUnitId];
+
+    // In Fabric, we need to be more aggressive about view restoration
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self restoreViewsAfterFabricRecycle];
+    });
+}
+
+- (void)restoreViewsAfterFabricRecycle
+{
+    if ( !self.nativeAd || !self.nativeAd.nativeAd ) return;
+
+    // Clear existing clickable views
+    [self.clickableViews removeAllObjects];
+
+    // Use a more aggressive approach to find child views in Fabric
+    [self findAndRestoreChildViews];
+
+    // Re-register click handlers
+    if ( [self.clickableViews count] > 0 )
+    {
+        [self renderNativeAd];
+        self.hasRestoredViews = YES;
+    }
+}
+
+- (void)findAndRestoreChildViews
+{
+    // In Fabric, child views might not be immediately available
+    // We need to traverse the view hierarchy more thoroughly
+    [self traverseAndRestoreViews:self];
+}
+
+- (void)traverseAndRestoreViews:(UIView *)parentView
+{
+    for ( UIView *subview in parentView.subviews )
+    {
+        // Check if this view has one of our asset tags
+        [self checkAndRestoreAssetView:subview];
+
+        // Recursively check child views
+        [self traverseAndRestoreViews:subview];
+    }
+}
+
+- (void)checkAndRestoreAssetView:(UIView *)view
+{
+    switch ( view.tag )
+    {
+        case TITLE_LABEL_TAG:
+            if ( self.nativeAd.nativeAd.title )
+            {
+                [self.clickableViews addObject: view];
+                [[AppLovinMAX shared] log: @"Restored title view for %@", self.adUnitId];
+            }
+            break;
+
+        case ADVERTISER_VIEW_TAG:
+            if ( self.nativeAd.nativeAd.advertiser )
+            {
+                [self.clickableViews addObject: view];
+                [[AppLovinMAX shared] log: @"Restored advertiser view for %@", self.adUnitId];
+            }
+            break;
+
+        case BODY_VIEW_TAG:
+            if ( self.nativeAd.nativeAd.body )
+            {
+                [self.clickableViews addObject: view];
+                [[AppLovinMAX shared] log: @"Restored body view for %@", self.adUnitId];
+            }
+            break;
+
+        case CALL_TO_ACTION_VIEW_TAG:
+            if ( self.nativeAd.nativeAd.callToAction )
+            {
+                [self.clickableViews addObject: view];
+                [[AppLovinMAX shared] log: @"Restored CTA view for %@", self.adUnitId];
+            }
+            break;
+
+        case ICON_VIEW_TAG:
+            [self.clickableViews addObject: view];
+            [[AppLovinMAX shared] log: @"Restored icon view for %@", self.adUnitId];
+            break;
+
+        case MEDIA_VIEW_CONTAINER_TAG:
+            if ( self.nativeAd.nativeAd.mediaView )
+            {
+                [self.clickableViews addObject: view];
+
+                // Remove media view from any existing superview
+                [self.nativeAd.nativeAd.mediaView removeFromSuperview];
+
+                // Re-attach to the correct container
+                [view addSubview: self.nativeAd.nativeAd.mediaView];
+                [self.nativeAd.nativeAd.mediaView al_pinToSuperview];
+
+                [[AppLovinMAX shared] log: @"Restored media view for %@", self.adUnitId];
+            }
+            break;
+    }
+}
+
+- (void)startFabricViewMonitoring
+{
+    [self stopFabricViewMonitoring];
+
+    // More frequent monitoring for Fabric due to its dynamic nature
+    self.viewStateMonitor = [NSTimer scheduledTimerWithTimeInterval:1.0
+                                                             target:self
+                                                           selector:@selector(checkFabricViewState)
+                                                           userInfo:nil
+                                                            repeats:YES];
+}
+
+- (void)stopFabricViewMonitoring
+{
+    if ( self.viewStateMonitor )
+    {
+        [self.viewStateMonitor invalidate];
+        self.viewStateMonitor = nil;
+    }
+}
+
+- (void)checkFabricViewState
+{
+    if ( !self.isViewVisible || !self.nativeAd || !self.nativeAd.nativeAd ) return;
+
+    // In Fabric, views can disappear more frequently
+    BOOL needsRestoration = [self.clickableViews count] == 0;
+
+    // Check if media view is missing
+    if ( !needsRestoration && self.nativeAd.nativeAd.mediaView )
+    {
+        BOOL mediaViewFound = NO;
+        for ( UIView *clickableView in self.clickableViews )
+        {
+            if ( clickableView.tag == MEDIA_VIEW_CONTAINER_TAG &&
+                 self.nativeAd.nativeAd.mediaView.superview == clickableView )
+            {
+                mediaViewFound = YES;
+                break;
+            }
+        }
+        needsRestoration = !mediaViewFound;
+    }
+
+    if ( needsRestoration )
+    {
+        [[AppLovinMAX shared] log: @"Fabric view state corrupted for %@, restoring...", self.adUnitId];
+        [self refreshNativeAdViewsForFabric];
+    }
+}
+
+#endif // RCT_NEW_ARCH_ENABLED
+
+#pragma mark - Legacy Architecture Support
+
+- (void)startViewStateMonitoring
+{
+    [self stopViewStateMonitoring];
+
+    // Monitor view state every 2 seconds to detect issues
+    self.viewStateMonitor = [NSTimer scheduledTimerWithTimeInterval:2.0
+                                                             target:self
+                                                           selector:@selector(checkAndRestoreViewState)
+                                                           userInfo:nil
+                                                            repeats:YES];
+}
+
+- (void)stopViewStateMonitoring
+{
+    if ( self.viewStateMonitor )
+    {
+        [self.viewStateMonitor invalidate];
+        self.viewStateMonitor = nil;
+    }
+}
+
+- (void)checkAndRestoreViewState
+{
+    if ( !self.isViewVisible || !self.nativeAd || !self.nativeAd.nativeAd ) return;
+
+    // Check if media view is missing
+    BOOL mediaViewMissing = NO;
+    UIView *mediaContainer = nil;
+
+    for ( UIView *clickableView in self.clickableViews )
+    {
+        if ( clickableView.tag == MEDIA_VIEW_CONTAINER_TAG )
+        {
+            mediaContainer = clickableView;
+            if ( self.nativeAd.nativeAd.mediaView &&
+                 self.nativeAd.nativeAd.mediaView.superview != clickableView )
+            {
+                mediaViewMissing = YES;
+            }
+            break;
+        }
+    }
+
+    // Check if clickable views are missing from the array
+    BOOL clickableViewsMissing = [self.clickableViews count] == 0 && [self.assetViewsMap count] > 0;
+
+    if ( mediaViewMissing || clickableViewsMissing )
+    {
+        [[AppLovinMAX shared] log: @"Detected missing views for %@, restoring...", self.adUnitId];
+        [self restoreNativeAdViews];
+    }
+}
+
+- (void)restoreNativeAdViews
+{
+    if ( !self.nativeAd || !self.nativeAd.nativeAd ) return;
+
+    [[AppLovinMAX shared] log: @"Restoring native ad views for %@", self.adUnitId];
+
+    // Clear current clickable views
+    [self.clickableViews removeAllObjects];
+
+    // Restore all asset views from the stored map
+    for ( NSNumber *tag in self.assetViewsMap )
+    {
+        UIView *view = [self.bridge.uiManager viewForReactTag: tag];
+        if ( view )
+        {
+            [self restoreAssetView:view withTag:tag];
+        }
+    }
+
+    // Re-register click handlers
+    if ( [self.clickableViews count] > 0 )
+    {
+        [self renderNativeAd];
+        self.hasRestoredViews = YES;
+    }
+}
+
+- (void)restoreAssetView:(UIView *)view withTag:(NSNumber *)tag
+{
+    switch ( view.tag )
+    {
+        case TITLE_LABEL_TAG:
+            if ( self.nativeAd.nativeAd.title )
+            {
+                [self.clickableViews addObject: view];
+            }
+            break;
+
+        case ADVERTISER_VIEW_TAG:
+            if ( self.nativeAd.nativeAd.advertiser )
+            {
+                [self.clickableViews addObject: view];
+            }
+            break;
+
+        case BODY_VIEW_TAG:
+            if ( self.nativeAd.nativeAd.body )
+            {
+                [self.clickableViews addObject: view];
+            }
+            break;
+
+        case CALL_TO_ACTION_VIEW_TAG:
+            if ( self.nativeAd.nativeAd.callToAction )
+            {
+                [self.clickableViews addObject: view];
+            }
+            break;
+
+        case ICON_VIEW_TAG:
+            [self.clickableViews addObject: view];
+            break;
+
+        case MEDIA_VIEW_CONTAINER_TAG:
+            if ( self.nativeAd.nativeAd.mediaView )
+            {
+                [self.clickableViews addObject: view];
+
+                // Remove media view from any existing superview
+                [self.nativeAd.nativeAd.mediaView removeFromSuperview];
+
+                // Re-attach to the correct container
+                [view addSubview: self.nativeAd.nativeAd.mediaView];
+                [self.nativeAd.nativeAd.mediaView al_pinToSuperview];
+            }
+            break;
+    }
 }
 
 /**
@@ -613,58 +1101,58 @@ using namespace facebook::react;
 - (void)didLoadNativeAd:(nullable MANativeAdView *)nativeAdView forAd:(MAAd *)ad
 {
     [[AppLovinMAX shared] log: @"Native ad loaded: %@", ad];
-    
+
     // Log a warning if it is a template native ad returned - as our plugin will be responsible for re-rendering the native ad's assets
     if ( nativeAdView )
     {
         [self.isLoading set: NO];
-        
+
         [[AppLovinMAX shared] log: @"Native ad is of template type, failing ad load..."];
         self.onAdLoadFailedEvent([[AppLovinMAX shared] adLoadFailedInfoForAd: self.adUnitId withError: nil]);
-        
+
         return;
     }
-    
+
     [self destroyCurrentAdIfNeeded];
-    
+
     self.nativeAd = ad;
-    
+
     // Notify `AppLovinNativeAdView.js`
     [self sendAdLoadedReactNativeEventForAd: ad.nativeAd];
-    
+
     [self.isLoading set: NO];
 }
 
 - (void)sendAdLoadedReactNativeEventForAd:(MANativeAd *)ad
 {
     // 1. AdInfo for publisher to be notified via `onAdLoaded`
-    
+
     NSMutableDictionary<NSString *, id> *nativeAdInfo = [NSMutableDictionary dictionaryWithCapacity: 5];
     nativeAdInfo[@"title"] = ad.title;
     nativeAdInfo[@"advertiser"] = ad.advertiser;
     nativeAdInfo[@"body"] = ad.body;
     nativeAdInfo[@"callToAction"] = ad.callToAction;
     nativeAdInfo[@"starRating"] = ad.starRating;
-    
+
     // The aspect ratio can be 0.0f when it is not provided by the network.
     if ( ad.mediaContentAspectRatio > 0 )
     {
         nativeAdInfo[@"mediaContentAspectRatio"] = @(ad.mediaContentAspectRatio);
     }
-    
+
     nativeAdInfo[@"isIconImageAvailable"] = @(ad.icon != nil || ad.iconView != nil);
     nativeAdInfo[@"isOptionsViewAvailable"] = @(ad.optionsView != nil);
     nativeAdInfo[@"isMediaViewAvailable"] = @(ad.mediaView != nil);
-    
+
     // 2. NativeAd for `AppLovinNativeAdView.js` to render the views
-    
+
     NSMutableDictionary<NSString *, id> *jsNativeAd = [NSMutableDictionary dictionaryWithCapacity: 5];
     jsNativeAd[@"title"] = ad.title;
     jsNativeAd[@"advertiser"] = ad.advertiser;
     jsNativeAd[@"body"] = ad.body;
     jsNativeAd[@"callToAction"] = ad.callToAction;
     jsNativeAd[@"starRating"] = ad.starRating;
-    
+
     if ( ad.icon )
     {
         if ( ad.icon.URL )
@@ -677,14 +1165,14 @@ using namespace facebook::react;
             jsNativeAd[@"imageSource"] = [imageData base64EncodedStringWithOptions: 0];
         }
     }
-    
+
     jsNativeAd[@"isOptionsViewAvailable"] = ad.optionsView ? @(YES) : @(NO);
     jsNativeAd[@"isMediaViewAvailable"] = ad.mediaView ? @(YES) : @(NO);
-    
+
     NSMutableDictionary *adInfo = [[[AppLovinMAX shared] adInfoForAd: self.nativeAd] mutableCopy];
     adInfo[@"nativeAd"] = nativeAdInfo;
     adInfo[@"nativeAdImpl"] = jsNativeAd;
-    
+
     // Send to `AppLovinNativeAdView.js`
     self.onAdLoadedEvent(adInfo);
 }
@@ -692,9 +1180,9 @@ using namespace facebook::react;
 - (void)didFailToLoadNativeAdForAdUnitIdentifier:(NSString *)adUnitIdentifier withError:(MAError *)error
 {
     [self.isLoading set: NO];
-    
+
     [[AppLovinMAX shared] log: @"Failed to load native ad for Ad Unit ID %@ with error: %@", self.adUnitId, error];
-    
+
     // Notify publisher
     self.onAdLoadFailedEvent([[AppLovinMAX shared] adLoadFailedInfoForAd: adUnitIdentifier withError: error]);
 }
@@ -702,6 +1190,15 @@ using namespace facebook::react;
 - (void)didClickNativeAd:(MAAd *)ad
 {
     self.onAdClickedEvent([[AppLovinMAX shared] adInfoForAd: ad]);
+
+    // Refresh views after ad interaction to recover from potential view hierarchy changes
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+#ifdef RCT_NEW_ARCH_ENABLED
+        [self refreshNativeAdViewsForFabric];
+#else
+        [self restoreNativeAdViews];
+#endif
+    });
 }
 
 #pragma mark - Ad Revenue Delegate
@@ -713,6 +1210,11 @@ using namespace facebook::react;
 
 - (void)destroyCurrentAdIfNeeded
 {
+    [self stopViewStateMonitoring];
+#ifdef RCT_NEW_ARCH_ENABLED
+    [self stopFabricViewMonitoring];
+#endif
+
     if ( self.nativeAd )
     {
         if ( self.nativeAd.nativeAd )
@@ -726,13 +1228,15 @@ using namespace facebook::react;
                 [self.nativeAd.nativeAd.optionsView removeFromSuperview];
             }
         }
-        
+
         [self.adLoader destroyAd: self.nativeAd];
-        
+
         self.nativeAd = nil;
     }
-    
+
     [self.clickableViews removeAllObjects];
+    [self.assetViewsMap removeAllObjects];
+    self.hasRestoredViews = NO;
 }
 
 @end

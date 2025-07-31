@@ -40,14 +40,14 @@ RCT_EXPORT_VIEW_PROPERTY(onAdRevenuePaidEvent, RCTDirectEventBlock)
 RCT_EXPORT_METHOD(loadAd:(nonnull NSNumber *)viewTag)
 {
     [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-        
+
         UIView *view = viewRegistry[viewTag];
         if ( ![view isKindOfClass: [AppLovinMAXNativeAdView class]] )
         {
             [[AppLovinMAX shared] log: @"Cannot find AppLovinMAXNativeAdView with tag %@", viewTag];
             return;
         }
-        
+
         AppLovinMAXNativeAdView *nativeAdView = (AppLovinMAXNativeAdView *) view;
         [nativeAdView loadAd];
     }];
@@ -56,16 +56,16 @@ RCT_EXPORT_METHOD(loadAd:(nonnull NSNumber *)viewTag)
 RCT_EXPORT_METHOD(updateAssetView:(nonnull NSNumber *)viewTag assetViewTag:(NSInteger)assetViewTag assetViewName:(NSString *)assetViewName)
 {
     [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-        
+
         UIView *view = viewRegistry[viewTag];
         if ( ![view isKindOfClass: [AppLovinMAXNativeAdView class]] )
         {
             [[AppLovinMAX shared] log: @"Cannot find AppLovinMAXNativeAdView with tag %@", viewTag];
             return;
         }
-        
+
         AppLovinMAXNativeAdView *nativeAdView = (AppLovinMAXNativeAdView *) view;
-        
+
         if ( [assetViewName isEqualToString: @"TitleView"] )
         {
             [nativeAdView setTitleView: @(assetViewTag)];
@@ -107,9 +107,49 @@ RCT_EXPORT_METHOD(renderNativeAd:(nonnull NSNumber *)viewTag)
             [[AppLovinMAX shared] log: @"Cannot find AppLovinMAXNativeAdView with tag %@", viewTag];
             return;
         }
-        
+
         AppLovinMAXNativeAdView *nativeAdView = (AppLovinMAXNativeAdView *) view;
         [nativeAdView renderNativeAd];
+    }];
+}
+
+RCT_EXPORT_METHOD(refreshViewsForFabric:(nonnull NSNumber *)viewTag)
+{
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+
+        UIView *view = viewRegistry[viewTag];
+        if ( ![view isKindOfClass: [AppLovinMAXNativeAdView class]] )
+        {
+            [[AppLovinMAX shared] log: @"Cannot find AppLovinMAXNativeAdView with tag %@", viewTag];
+            return;
+        }
+
+        AppLovinMAXNativeAdView *nativeAdView = (AppLovinMAXNativeAdView *) view;
+#ifdef RCT_NEW_ARCH_ENABLED
+        [nativeAdView refreshNativeAdViewsForFabric];
+#else
+        [nativeAdView restoreNativeAdViews];
+#endif
+    }];
+}
+
+RCT_EXPORT_METHOD(refreshNativeAdViews:(nonnull NSNumber *)viewTag)
+{
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+
+        UIView *view = viewRegistry[viewTag];
+        if ( ![view isKindOfClass: [AppLovinMAXNativeAdView class]] )
+        {
+            [[AppLovinMAX shared] log: @"Cannot find AppLovinMAXNativeAdView with tag %@", viewTag];
+            return;
+        }
+
+        AppLovinMAXNativeAdView *nativeAdView = (AppLovinMAXNativeAdView *) view;
+#ifdef RCT_NEW_ARCH_ENABLED
+        [nativeAdView refreshNativeAdViewsForFabric];
+#else
+        [nativeAdView restoreNativeAdViews];
+#endif
     }];
 }
 
